@@ -14,5 +14,3 @@ def divide(x, y):
 
 def tempFunction():
     return "Test"
-
-"""--- Test ---"""
