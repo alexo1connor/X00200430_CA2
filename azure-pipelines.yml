@@ -32,6 +32,11 @@ steps:
     cat pylint_report.txt
   displayName: 'Run Code Analysis Report'
 
+- task: PublishPipelineArtifact@1
+  inputs:
+    targetPath: $(System.DefaultWorkingDirectory)/pylint_report.txt
+    artifactName: CodeAnalysisReport
+
 - script: |
     python -m compileall .
   displayName: 'Build Python App'
