@@ -28,8 +28,8 @@ steps:
     reportDirectory: '$(System.DefaultWorkingDirectory)/**/htmlcov'
 
 - script: |
-    pylint src --output-format=text
     pylint src --output-format=text >> pylint_report.txt
+    cat pylint_report.txt
   displayName: 'Run Code Analysis Report'
 
 - task: PublishPipelineArtifact@1
