@@ -16,3 +16,10 @@ class TestCalculator:
         assert multiply(2, 3) == 6
         assert multiply(-1, 1) == -1
         assert multiply(-1, -1) == 1
+    
+    def test_divide(self):
+        assert divide(6, 3) == 2
+        assert divide(-6, 3) == -2
+        assert divide(-6, -3) == 2
+        with pytest.raises(ValueError):
+            divide(1, 0)
