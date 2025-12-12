@@ -80,7 +80,7 @@ stages:
 
           - script: |
               pip install -r $(Pipeline.Workspace)/drop/requirements.txt
-              gunicorn -w 1 -b 0.0.0.0:5000 src.app:app &
+              gunicorn -w 1 -b 0.0.0.0:5000 app:app &
               sleep 5
             displayName: 'Start Web Server'
 
