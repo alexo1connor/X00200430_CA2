@@ -7,11 +7,11 @@ pool:
   vmImage: 'ubuntu-latest'
 
 stages:
-- stage: Build_and_Test
-  displayName: 'Build and Test Stage'
+- stage: Build
+  displayName: 'Build'
   jobs:
-  - job: BuildAndTest
-    displayName: 'Build and Test Job'
+  - job: Build
+    displayName: 'Build'
     steps:
     - task: UsePythonVersion@0
       inputs:
@@ -21,17 +21,6 @@ stages:
     - script: |
         pip install -r requirements.txt
       displayName: 'Install Dependencies'
-
-    - script: |
-        pytest --cov=./ --cov-report=xml --cov-report=html --cov-fail-under=80
-      displayName: 'Run Tests'
-
-    - task: PublishCodeCoverageResults@2
-      displayName: 'Publish Code Coverage Reports'
-      inputs:
-        codeCoverageTool: 'Cobertura'
-        summaryFileLocation: '$(System.DefaultWorkingDirectory)/**/coverage.xml'
-        reportDirectory: '$(System.DefaultWorkingDirectory)/**/htmlcov'
 
     - script: |
         pylint src --output-format=text >> pylint_report.txt
@@ -85,5 +74,13 @@ stages:
             displayName: 'Start Web Server'
 
           - script: |
-                  python -m pytest $(Pipeline.Workspace)/drop/tests/test_uat_calculator.py --junitxml=test-results/uat_results.xml
-            displayName: 'Run Selenium Tests'   
+              pytest --cov=./ --cov-report=xml --cov-report=html --cov-fail-under=80
+            displayName: 'Run Tests'
+
+          - task: PublishCodeCoverageResults@2
+            displayName: 'Publish Code Coverage Reports'
+            inputs:
+              codeCoverageTool: 'Cobertura'
+              summaryFileLocation: '$(System.DefaultWorkingDirectory)/**/coverage.xml'
+              reportDirectory: '$(System.DefaultWorkingDirectory)/**/htmlcov'
+        
