@@ -23,6 +23,17 @@ stages:
       displayName: 'Install Dependencies'
 
     - script: |
+        pytest tests/unit_tests --cov=./ --cov-report=xml --cov-report=html --cov-fail-under=80
+      displayName: 'Run Tests'
+
+    - task: PublishCodeCoverageResults@2
+      displayName: 'Publish Code Coverage Reports'
+      inputs:
+        codeCoverageTool: 'Cobertura'
+        summaryFileLocation: '$(System.DefaultWorkingDirectory)/**/coverage.xml'
+        reportDirectory: '$(System.DefaultWorkingDirectory)/**/htmlcov'
+
+    - script: |
         pylint src --output-format=text >> pylint_report.txt
         cat pylint_report.txt
       displayName: 'Run Code Analysis Report'
@@ -50,7 +61,7 @@ stages:
   
 - stage: Deploy_and_Test_Staging
   displayName: 'Deploy and Test in Staging'
-  dependsOn: Build
+  dependsOn: Build_and_Test
   jobs:
   - deployment: DeployToStaging
     displayName: 'Deploy to Staging Environment'
@@ -74,13 +85,5 @@ stages:
             displayName: 'Start Web Server'
 
           - script: |
-              pytest --cov=./ --cov-report=xml --cov-report=html --cov-fail-under=80
-            displayName: 'Run Tests'
-
-          - task: PublishCodeCoverageResults@2
-            displayName: 'Publish Code Coverage Reports'
-            inputs:
-              codeCoverageTool: 'Cobertura'
-              summaryFileLocation: '$(System.DefaultWorkingDirectory)/**/coverage.xml'
-              reportDirectory: '$(System.DefaultWorkingDirectory)/**/htmlcov'
-        
+                  python -m pytest $(Pipeline.Workspace)/drop/tests/UAT_tests --junitxml=test-results/uat_results.xml
+            displayName: 'Run Selenium Tests'   
