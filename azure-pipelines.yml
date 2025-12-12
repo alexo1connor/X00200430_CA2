@@ -5,50 +5,84 @@ trigger:
 pool:
   vmImage: 'ubuntu-latest'
 
-steps:
-- task: UsePythonVersion@0
-  inputs:
-    versionSpec: '3.13.3'
-    addToPath: true
+stages:
+- stage: Build_and_Test
+  displayName: 'Build and Test Stage'
+  jobs:
+  - job: BuildAndTest
+    displayName: 'Build and Test Job'
+    steps:
+    - task: UsePythonVersion@0
+      inputs:
+        versionSpec: '3.13.3'
+        addToPath: true
+
+    - script: |
+        pip install -r requirements.txt
+      displayName: 'Install Dependencies'
+
+    - script: |
+        pytest --cov=./ --cov-report=xml --cov-report=html --cov-fail-under=80
+      displayName: 'Run Tests'
+
+    - task: PublishCodeCoverageResults@2
+      displayName: 'Publish Code Coverage Reports'
+      inputs:
+        codeCoverageTool: 'Cobertura'
+        summaryFileLocation: '$(System.DefaultWorkingDirectory)/**/coverage.xml'
+        reportDirectory: '$(System.DefaultWorkingDirectory)/**/htmlcov'
+
+    - script: |
+        pylint src --output-format=text >> pylint_report.txt
+        cat pylint_report.txt
+      displayName: 'Run Code Analysis Report'
+
+    - task: PublishPipelineArtifact@1
+      inputs:
+        targetPath: $(System.DefaultWorkingDirectory)/pylint_report.txt
+        artifactName: CodeAnalysisReport
+      displayName: 'Publish Code Analysis Report'
+
+    - script: |
+        python -m compileall .
+      displayName: 'Build Python App'
+
+    - task: CopyFiles@2
+      inputs:
+        contents: '**/*.py'
+        targetFolder: '$(build.artifactStagingDirectory)'
 
 
-- script: |
-    pip install -r requirements.txt
-  displayName: 'Install Dependencies'
+    - task: PublishBuildArtifacts@1
+      inputs:
+        pathToPublish: '$(Build.ArtifactStagingDirectory)'
+        artifactName: 'drop'
+  
+- stage: Deploy_and_Test_Staging
+  displayName: 'Deploy and Test in Staging'
+  dependsOn: Build_and_Test
+  jobs:
+  - deployment: DeployToStaging
+    displayName: 'Deploy to Staging Environment'
+    environment: 'staging'
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          - download: current
+            artifact: drop
 
-- script: |
-    pytest --cov=./ --cov-report=xml --cov-report=html --cov-fail-under=80
-  displayName: 'Run Tests'
+          - script: |
+                sudo apt-get update
+                sudo apt-get install -y google-chrome-stable
+            displayName: 'Install Chrome for Selenium Tests'
 
-- task: PublishCodeCoverageResults@2
-  displayName: 'Publish Code Coverage Reports'
-  inputs:
-    codeCoverageTool: 'Cobertura'
-    summaryFileLocation: '$(System.DefaultWorkingDirectory)/**/coverage.xml'
-    reportDirectory: '$(System.DefaultWorkingDirectory)/**/htmlcov'
+          - script: |
+              pip install -r $(Pipeline.Workspace)/drop/requirements.txt
+              gunicorn -w 1 -b 0.0.0.0:5000 src.app:app &
+              sleep 5
+            displayName: 'Start Web Server'
 
-- script: |
-    pylint src --output-format=text >> pylint_report.txt
-    cat pylint_report.txt
-  displayName: 'Run Code Analysis Report'
-
-- task: PublishPipelineArtifact@1
-  inputs:
-    targetPath: $(System.DefaultWorkingDirectory)/pylint_report.txt
-    artifactName: CodeAnalysisReport
-  displayName: 'Publish Code Analysis Report'
-
-- script: |
-    python -m compileall .
-  displayName: 'Build Python App'
-
-- task: CopyFiles@2
-  inputs:
-    contents: '**/*.py'
-    targetFolder: '$(build.artifactStagingDirectory)'
-
-
-- task: PublishBuildArtifacts@1
-  inputs:
-    pathToPublish: '$(Build.ArtifactStagingDirectory)'
-    artifactName: 'drop'
+          - script: |
+                  python -m pytest $(Pipeline.Workspace)/drop/tests/test_uat_calculator.py --junitxml=test-results/uat_results.xml
+            displayName: 'Run Selenium Tests'   
