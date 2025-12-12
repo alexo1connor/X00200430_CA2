@@ -79,7 +79,8 @@ stages:
             displayName: 'Install Chrome for Selenium Tests'
 
           - script: |
-              pip install -r $(Pipeline.Workspace)/drop/requirements.txt
+              cd $(Pipeline.Workspace)/drop
+              pip install -r requirements.txt
               gunicorn -w 1 -b 0.0.0.0:5000 app:app &
               sleep 5
             displayName: 'Start Web Server'
