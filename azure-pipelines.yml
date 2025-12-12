@@ -50,7 +50,7 @@ stages:
 
     - task: CopyFiles@2
       inputs:
-        contents: '**/*.py'
+        contents: '**'
         targetFolder: '$(build.artifactStagingDirectory)'
 
 
