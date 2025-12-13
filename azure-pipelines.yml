@@ -33,6 +33,7 @@ stages:
         summaryFileLocation: '$(System.DefaultWorkingDirectory)/**/coverage.xml'
         reportDirectory: '$(System.DefaultWorkingDirectory)/**/htmlcov'
 
+          
     - script: |
         pylint src --output-format=text >> pylint_report.txt
         cat pylint_report.txt
@@ -111,7 +112,6 @@ stages:
           steps:
           - download: current
             artifact: drop
-
           - script: |
                 sudo apt-get update
                 sudo apt-get install -y google-chrome-stable
@@ -153,3 +153,25 @@ stages:
               targetPath: '$(Pipeline.Workspace)/drop/locust_report_stats.csv'
               artifactName: PerformanceTestReport
             displayName: 'Publish Performance Report'
+
+
+- stage: DeployLive
+  displayName: 'Deploy to Live'
+  dependsOn: DeployStaging 
+  condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+  jobs:
+  - deployment: DeployToLive
+    displayName: 'Deploy to Live'
+    environment: 'Live'
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          - download: current
+            artifact: drop
+          - script: |
+              cd $(Pipeline.Workspace)/drop
+              pip install -r requirements.txt
+              gunicorn -w 3 -b 0.0.0.0:5000 app:app & # Note: Use standard port 80 for production if possible
+              sleep 5
+            displayName: 'Deploy Production Web Server'
