@@ -138,8 +138,8 @@ stages:
 
           - script: |
               cd $(Pipeline.Workspace)/drop
-              locust -f tests/locustfile.py --headless -u 10 -r 2 --run-time 30s --csv locust_report
-            displayName: 'Run Performance Tests'
+              python -m locust -f tests/locustfile.py --headless -u 10 -r 2 --run-time 30s --csv locust_report            displayName: 'Run Performance Tests'
+            displayName: 'Run Performance Tests'  
         
           - task: PublishPipelineArtifact@1
             inputs:
