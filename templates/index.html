@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+
+<body>
+    <h1>Calculator</h1>
+    
+    <form method="POST">
+        <label for="num1">Number 1:</label>
+        <input required type="number" id="num1" name="num1" value="0"><br><br>
+        
+        <label for="type">Type:</label>
+        <select id="type" name="type">
+            <option value="add">+</option>
+            <option value="subtract">-</option>
+            <option value="multiply">*</option>
+            <option value="divide">/</option>
+        </select><br><br>
+
+        <label for="num2">Number 2:</label>
+        <input required type="number" id="num2" name="num2" value="0"><br><br>
+        
+        <button type="submit" id="submit">Calculate</button>
+    </form>
+    
+    <h2>Result: <span id="result">{{ result }}</span></h2>
+</body>
+</html>

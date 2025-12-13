@@ -1,54 +1,177 @@
 trigger:
 - main
-- development
+- Dev
+
 
 pool:
   vmImage: 'ubuntu-latest'
 
-steps:
-- task: UsePythonVersion@0
-  inputs:
-    versionSpec: '3.13.3'
-    addToPath: true
+stages:
+- stage: Build
+  displayName: 'Build'
+  jobs:
+  - job: Build
+    displayName: 'Build'
+    steps:
+    - task: UsePythonVersion@0
+      inputs:
+        versionSpec: '3.13.3'
+        addToPath: true
+
+    - script: |
+        pip install -r requirements.txt
+      displayName: 'Install Dependencies'
+
+    - script: |
+        pytest tests/unit_tests --cov=./src --cov-report=xml --cov-report=html --cov-fail-under=80
+      displayName: 'Run Tests'
+
+    - task: PublishCodeCoverageResults@2
+      displayName: 'Publish Code Coverage Reports'
+      inputs:
+        codeCoverageTool: 'Cobertura'
+        summaryFileLocation: '$(System.DefaultWorkingDirectory)/**/coverage.xml'
+        reportDirectory: '$(System.DefaultWorkingDirectory)/**/htmlcov'
+
+          
+    - script: |
+        pylint src --output-format=text >> pylint_report.txt
+        cat pylint_report.txt
+      displayName: 'Run Code Analysis Report'
+
+    - task: PublishPipelineArtifact@1
+      inputs:
+        targetPath: $(System.DefaultWorkingDirectory)/pylint_report.txt
+        artifactName: CodeAnalysisReport
+      displayName: 'Publish Code Analysis Report'
+
+    - script: |
+        python -m compileall .
+      displayName: 'Build Python App'
+
+    - task: CopyFiles@2
+      inputs:
+        contents: '**'
+        targetFolder: '$(build.artifactStagingDirectory)'
 
 
-- script: |
-    pip install -r requirements.txt
-  displayName: 'Install Dependencies'
+    - task: PublishBuildArtifacts@1
+      inputs:
+        pathToPublish: '$(Build.ArtifactStagingDirectory)'
+        artifactName: 'drop'
+  
 
-- script: |
-    pytest --cov=./ --cov-report=xml --cov-report=html --cov-fail-under=80
-  displayName: 'Run Tests'
+# - stage: SecurityChecks
+#   displayName: 'Security Scanning'
+#   jobs:
+#   - job: SecurityChecks
+#     steps:
 
-- task: PublishCodeCoverageResults@2
-  displayName: 'Publish Code Coverage Reports'
-  inputs:
-    codeCoverageTool: 'Cobertura'
-    summaryFileLocation: '$(System.DefaultWorkingDirectory)/**/coverage.xml'
-    reportDirectory: '$(System.DefaultWorkingDirectory)/**/htmlcov'
+#     - checkout: self
+#       fetchDepth: 0
+    
+#     - task: Gitleaks@3
+#       displayName: 'Gitleaks secret scan (CredScan replacement)'
+#       inputs:
+#         scanlocation: '$(Build.SourcesDirectory)'
+#         configtype: 'predefined'
+#         predefinedconfigfile: 'GitleaksUdmCombo.toml'
+#         scanmode: 'smart'
+#         taskfail: false
+#         taskfailonexecutionerror: true 
+#         reportformat: 'sarif'
+#         uploadresults: true
+#         reportartifactname: 'CodeAnalysisLogs'
+#         redact: true
+#         verbose: false
 
-- script: |
-    pylint src --output-format=text >> pylint_report.txt
-    cat pylint_report.txt
-  displayName: 'Run Code Analysis Report'
-
-- task: PublishPipelineArtifact@1
-  inputs:
-    targetPath: $(System.DefaultWorkingDirectory)/pylint_report.txt
-    artifactName: CodeAnalysisReport
-  displayName: 'Publish Code Analysis Report'
-
-- script: |
-    python -m compileall .
-  displayName: 'Build Python App'
-
-- task: CopyFiles@2
-  inputs:
-    contents: '**/*.py'
-    targetFolder: '$(build.artifactStagingDirectory)'
+#     - task: dependency-check-build-task@6
+#       inputs:
+#           projectName: '$(Build.Repository.Name)'
+#           scanPath: '$(System.DefaultWorkingDirectory)/requirements.txt'
+#           format: 'HTML'
+#           uploadReports: true
+#           uploadSARIFReport: true
+#           # failOnCVSS: '7'
+#           nvdApiKey: '0a6f948c-d4df-4056-a680-12a8035f9486'
+#           additionalArguments: >
+#             --disableCentral
+#             --disableOssIndex
 
 
-- task: PublishBuildArtifacts@1
-  inputs:
-    pathToPublish: '$(Build.ArtifactStagingDirectory)'
-    artifactName: 'drop'
+- stage: DeployStaging
+  displayName: 'DeployStaging'
+  dependsOn: Build
+  jobs:
+  - deployment: DeployToStaging
+    displayName: 'Deploy to Staging Environment for Advanced Testing'
+    environment: 'Staging'
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          - download: current
+            artifact: drop
+          - script: |
+                sudo apt-get update
+                sudo apt-get install -y google-chrome-stable
+            displayName: 'Install Chrome for Selenium Tests'
+
+          - script: |
+              cd $(Pipeline.Workspace)/drop
+              python3 -m venv venv
+              source venv/bin/activate
+              python -m pip install --upgrade pip
+              python -m pip install -r requirements.txt
+              python -m pip install --upgrade locust selenium
+              python -m pip install zope.event zope.interface
+              gunicorn -w 1 -b 0.0.0.0:5000 app:app &
+              sleep 5
+            displayName: 'Start Web Server'
+
+          - script: |
+              cd $(Pipeline.Workspace)/drop
+              source venv/bin/activate
+              python -m pytest tests/UAT_tests --junitxml=test-results/uat_results.xml
+            displayName: 'Run Selenium Tests' 
+
+          - task: PublishTestResults@2
+            inputs:
+              testResultsFormat: 'JUnit'
+              testResultsFiles: '**/uat_results.xml'
+              failTaskOnFailedTests: true
+            displayName: 'Publish UAT Results'
+
+          - script: |
+              cd $(Pipeline.Workspace)/drop
+              source venv/bin/activate
+              python -m locust -f tests/locustfile.py --headless -u 10 -r 2 --run-time 30s --csv locust_report
+            displayName: 'Run Performance Tests'  
+        
+          - task: PublishPipelineArtifact@1
+            inputs:
+              targetPath: '$(Pipeline.Workspace)/drop/locust_report_stats.csv'
+              artifactName: PerformanceTestReport
+            displayName: 'Publish Performance Report'
+
+
+- stage: DeployLive
+  displayName: 'Deploy to Live'
+  dependsOn: DeployStaging 
+  condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+  jobs:
+  - deployment: DeployToLive
+    displayName: 'Deploy to Live'
+    environment: 'Prod'
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          - download: current
+            artifact: drop
+          - script: |
+              cd $(Pipeline.Workspace)/drop
+              pip install -r requirements.txt
+              gunicorn -w 3 -b 0.0.0.0:5000 app:app & # Note: Use standard port 80 for production if possible
+              sleep 5
+            displayName: 'Deploy Production Web Server'
