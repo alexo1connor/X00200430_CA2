@@ -87,7 +87,7 @@ stages:
     - task: dependency-check-build-task@6
       inputs:
           projectName: '$(Build.Repository.Name)'
-          scanPath: '$(System.DefaultWorkingDirectory)'
+          scanPath: '$(System.DefaultWorkingDirectory)/requirements.txt'
           format: 'HTML'
           uploadReports: true
           uploadSARIFReport: true
