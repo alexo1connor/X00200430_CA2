@@ -120,6 +120,7 @@ stages:
           - script: |
               cd $(Pipeline.Workspace)/drop
               pip install -r requirements.txt
+              pip install --upgrade locust selenium
               gunicorn -w 1 -b 0.0.0.0:5000 app:app &
               sleep 5
             displayName: 'Start Web Server'
