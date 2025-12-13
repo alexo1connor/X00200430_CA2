@@ -119,6 +119,8 @@ stages:
 
           - script: |
               cd $(Pipeline.Workspace)/drop
+              python3 -m venv venv
+              source venv/bin/activate
               python -m pip install --upgrade pip
               python -m pip install -r requirements.txt
               python -m pip install --upgrade locust selenium
@@ -128,7 +130,9 @@ stages:
             displayName: 'Start Web Server'
 
           - script: |
-                  python -m pytest $(Pipeline.Workspace)/drop/tests/UAT_tests --junitxml=test-results/uat_results.xml
+              cd $(Pipeline.Workspace)/drop
+              source venv/bin/activate
+              python -m pytest tests/UAT_tests --junitxml=test-results/uat_results.xml
             displayName: 'Run Selenium Tests' 
 
           - task: PublishTestResults@2
@@ -140,6 +144,7 @@ stages:
 
           - script: |
               cd $(Pipeline.Workspace)/drop
+              source venv/bin/activate
               python -m locust -f tests/locustfile.py --headless -u 10 -r 2 --run-time 30s --csv locust_report
             displayName: 'Run Performance Tests'  
         
