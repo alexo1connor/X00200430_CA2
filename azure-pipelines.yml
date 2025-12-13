@@ -73,7 +73,7 @@ stages:
           uploadReports: true
           uploadSARIFReport: true
           # failOnCVSS: '7'
-          nvdApiKey: '86334487-A5D7-F011-8366-0EBF96DE670D'
+          nvdApiKey: '0a6f948c-d4df-4056-a680-12a8035f9486'
           additionalArguments: >
             --disableCentral
             --disableOssIndex
