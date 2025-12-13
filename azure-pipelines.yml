@@ -59,9 +59,30 @@ stages:
         pathToPublish: '$(Build.ArtifactStagingDirectory)'
         artifactName: 'drop'
   
-- stage: Deploy_and_Test_Staging
-  displayName: 'Deploy and Test in Staging'
-  dependsOn: Build
+
+- stage: SecurityChecks
+  displayName: 'Security Scanning'
+  jobs:
+  - job: SecurityChecks
+    steps:
+    - task: dependency-check-build-task@6
+      displayName: 'Run OWASP Scan'
+      inputs:
+        projectName: '$(Build.Repository.Name)'
+        scanPath: '$(System.DefaultWorkingDirectory)/requirements.txt'
+        format: 'HTML'
+        uploadReports: true
+        uploadSARIFReport: true
+        failOnCVSS: '7' 
+        nvdApiKey: '86334487-A5D7-F011-8366-0EBF96DE670D'
+        additionalArguments: >
+          --disableCentral
+          --disableOssIndex
+
+
+- stage: DeployStaging
+  displayName: 'Deploy and UAT Test in Staging'
+  dependsOn: SecurityChecks
   jobs:
   - deployment: DeployToStaging
     displayName: 'Deploy to Staging Environment'
@@ -87,4 +108,11 @@ stages:
 
           - script: |
                   python -m pytest $(Pipeline.Workspace)/drop/tests/UAT_tests --junitxml=test-results/uat_results.xml
-            displayName: 'Run Selenium Tests'   
+            displayName: 'Run Selenium Tests' 
+
+          - task: PublishTestResults@2
+            inputs:
+              testResultsFormat: 'JUnit'
+              testResultsFiles: '**/uat_results.xml'
+              failTaskOnFailedTests: true
+            displayName: 'Publish UAT Results'
