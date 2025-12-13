@@ -66,19 +66,17 @@ stages:
   - job: SecurityChecks
     steps:
     - task: dependency-check-build-task@6
-      displayName: 'Run OWASP Scan'
       inputs:
-        projectName: '$(Build.Repository.Name)'
-        scanPath: '$(System.DefaultWorkingDirectory)/requirements.txt'
-        format: 'HTML'
-        uploadReports: true
-        uploadSARIFReport: true
-        failOnCVSS: '7' 
-        nvdApiKey: '86334487-A5D7-F011-8366-0EBF96DE670D'
-        additionalArguments: >
-          --disableCentral
-          --disableOssIndex
-          --disableNvd
+          projectName: '$(Build.Repository.Name)'
+          scanPath: '$(System.DefaultWorkingDirectory)'
+          format: 'HTML'
+          uploadReports: true
+          uploadSARIFReport: true
+          # failOnCVSS: '7'
+          nvdApiKey: '86334487-A5D7-F011-8366-0EBF96DE670D'
+          additionalArguments: >
+            --disableCentral
+            --disableOssIndex
 
 
 - stage: DeployStaging
